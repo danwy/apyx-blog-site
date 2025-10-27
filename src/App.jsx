@@ -1,10 +1,661 @@
 // apyx.blog - Starter React App (single-file)
 // Save this as `App.jsx` inside a create-react-app / Vite React project.
-// Uses Tailwind CSS for styling (classes are present). Instructions to run included below.
+// Uses Tailwind CSS for styling (classes are present).
 
 import React, { useEffect, useState, useRef } from 'react';
 
 // Core colours: highlight #F07694, background white #FFFFFF, contrast #00A5FF
+// Note: When using custom colors in Tailwind, we use bracket notation like: bg-[#F07694]
+
+// --- Helper Functions and Data ---
+
+function sampleDocs(){
+  return [
+    { id: 'd1', title: 'The Glimmering Sea', section: 'Short_fiction/Excerpts', logline: 'A mysterious artifact found beneath the waves.', content: 'This is the full content of the first document. It should be visible when the document view is active. The artifact pulses with a faint blue light, reminiscent of the deep ocean.', fileUrl: 'https://example.com/the_glimmering_sea.pdf', fileType: 'pdf', likes: 5, dislikes: 1, comments: [] },
+    { id: 'd2', title: 'Echoes of the Void', section: 'Experimental', logline: 'A stream-of-consciousness narrative experiment.', content: 'Document 2 content. Exploring non-linear storytelling and typographic limits.', fileUrl: 'https://example.com/echoes_of_the_void.pdf', fileType: 'pdf', likes: 12, dislikes: 0, comments: [] },
+    { id: 'd3', title: 'Sonnet for the Tired Mind', section: 'Poetry/Lyrics', logline: 'A 14-line reflection on modern anxiety.', content: 'Content for the Sonnet. Rhyme scheme ABAB CDCD EFEF GG.', fileUrl: 'https://example.com/sonnet_for_the_tired_mind.pdf', fileType: 'pdf', likes: 8, dislikes: 3, comments: [] },
+  ];
+}
+
+function sampleAudios(){
+  return [
+    { id: 'a1', title: 'Ambient Drift I', section: 'Music', logline: 'First track in a series of calming soundscapes.', fileUrl: 'https://example.com/ambient_drift.mp3', fileType: 'audio/mp3', likes: 20, dislikes: 0, comments: [] },
+  ];
+}
+
+
+// --- Nav Item Component (New/Modified) ---
+
+function NavItem({ text, onClick, isCategories=false, CORE }) {
+  
+  const categories = [
+    { text: "Experimental", view: 'Experimental' },
+    { text: "Short fiction/Excerpts", view: 'Short_fiction/Excerpts' },
+    { text: "Poetry/Lyrics", view: 'Poetry/Lyrics' },
+    { text: "Music", view: 'Music' },
+  ];
+  
+  return (
+    <div
+      onClick={isCategories ? null : onClick} // Only handle click if it's NOT the Categories button
+      className={`
+        text-white 
+        cursor-pointer 
+        p-2 px-4 
+        rounded-lg 
+        transition-colors duration-200 
+        hover:bg-white/20 
+        relative 
+        ${isCategories ? 'group' : ''} // This 'group' class is key for the hover dropdown
+      `}
+    >
+      {text}
+      
+      {/* Categories Dropdown Box (Appears on Hover) */}
+      {isCategories && (
+        <div 
+          className={`
+            absolute top-full left-1/2 -translate-x-1/2 
+            mt-3 w-64 
+            bg-white/95 backdrop-blur-sm shadow-2xl rounded-lg 
+            p-2 
+            opacity-0 invisible group-hover:opacity-100 group-hover:visible 
+            transition-opacity duration-300 z-50
+          `}
+        >
+          {categories.map((cat, index) => (
+            <div 
+              key={cat.text} 
+              // onClick is now responsible for sending the user to the section
+              onClick={() => onClick(cat.view)} 
+              className={`
+                p-2 text-gray-800 
+                hover:bg-gray-200/50 
+                rounded-md 
+                ${index < categories.length - 1 ? `border-b border-[${CORE.contrast}]/50 mb-1` : ''} 
+              `}
+            >
+              {cat.text}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// --- Top Bar Component (Modified to use new styling) ---
+
+function TopBar({setView, CORE, user, logOut, logIn, openCategories}){
+  const logoPath = "/path/to/your/logo.png"; // <-- REMINDER: CHANGE THIS TO YOUR ACTUAL LOGO PATH
+
+  return (
+    <div 
+      className={`
+        fixed top-0 left-0 right-0 z-50  
+        h-[100px] // Set height to about 100 pixels
+        bg-[${CORE.highlight}] 
+        shadow-xl 
+        flex items-center justify-between 
+        px-4 md:px-12
+      `}
+    >
+      {/* Container for Logo (Left) */}
+      <div className="flex items-center space-x-4">
+        {/* Logo and Home Button */}
+        <div 
+          className="cursor-pointer text-white text-2xl font-bold" 
+          onClick={() => setView({name:'home', payload:null})}
+        >
+          {/* Placeholder for your Logo */}
+          <img 
+            src={logoPath} // Path to your logo (Change this!)
+            alt="Apyx.blog Logo" 
+            className="h-16 w-auto" // Adjust size as needed
+            onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/100x64/F07694/FFFFFF?text=Logo" }}
+          /> 
+        </div>
+      </div>
+
+      {/* Container for Section Buttons (Center) */}
+      <div className="hidden md:flex space-x-4 text-lg font-semibold h-full items-center">
+        {/* The Menu Buttons */}
+        <NavItem text="Home" onClick={() => setView({name:'home', payload:null})} CORE={CORE} />
+        {/* Note: The 'openCategories' function now expects the section name as an argument */}
+        <NavItem text="Categories" isCategories={true} onClick={(sectionName) => setView({name:'section', payload:sectionName})} CORE={CORE} />
+        <NavItem text="About" onClick={() => setView({name:'about', payload:null})} CORE={CORE} />
+        <NavItem text="Contact" onClick={() => setView({name:'contact', payload:null})} CORE={CORE} />
+      </div>
+
+      {/* Container for Sign In/Profile (Right) */}
+      <div className="text-white text-base">
+        {user ? (
+          // If signed in
+          <NavItem text="Profile" onClick={() => setView({name:'profile', payload:null})} CORE={CORE} />
+        ) : (
+          // If NOT signed in
+          <div className="flex space-x-2">
+            <NavItem text="Sign In / Register" onClick={logIn} CORE={CORE} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// --- Search and Filtering Function ---
+
+function SearchFilter({ allItems, setFilteredItems, initialSection }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilter, setActiveFilter] = useState(initialSection || 'All');
+
+  // Logic to apply filters and search
+  useEffect(() => {
+    let results = allItems;
+    
+    // 1. Filter by Section
+    if (activeFilter !== 'All') {
+      results = results.filter(item => item.section === activeFilter);
+    }
+
+    // 2. Search by Term (title or content/logline)
+    if (searchTerm) {
+      const lowerCaseSearch = searchTerm.toLowerCase();
+      results = results.filter(item => 
+        item.title.toLowerCase().includes(lowerCaseSearch) ||
+        item.logline.toLowerCase().includes(lowerCaseSearch) ||
+        (item.content && item.content.toLowerCase().includes(lowerCaseSearch))
+      );
+    }
+    
+    setFilteredItems(results);
+  }, [searchTerm, activeFilter, allItems, setFilteredItems]);
+
+  const categories = ['All', 'Experimental', 'Short fiction/Excerpts', 'Poetry/Lyrics', 'Music'];
+
+  return (
+    <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-8 items-start mb-6">
+      {/* Search Bar */}
+      <input
+        type="text"
+        placeholder={`Search in ${initialSection || 'All'}...`}
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="p-3 border border-gray-300 rounded-lg shadow-sm w-full md:w-1/2 focus:ring-2 focus:ring-[#F07694]"
+      />
+
+      {/* Filter Tabs (Optional for Section view, helpful for Home/All) */}
+      <div className="flex space-x-2 overflow-x-auto p-1">
+        {categories.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setActiveFilter(cat)}
+            className={`
+              px-4 py-2 text-sm font-medium rounded-full whitespace-nowrap 
+              transition-colors duration-150
+              ${activeFilter === cat 
+                ? 'bg-[#F07694] text-white shadow-md' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}
+            `}
+          >
+            {cat.replace(/_/g, ' ').replace(/\//g, ' / ')}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+// --- Home Page Component ---
+
+function HomePage({ docs, audios, gotoDoc, CORE }) {
+  const allItems = [...docs, ...audios].sort(() => 0.5 - Math.random());
+  const randomItem = allItems[0] || {title: "Welcome", logline: "No content yet. Start uploading!", section: "Info"};
+  
+  const categories = [
+    { name: "Experimental", color: '#F07694' },
+    { name: "Short fiction/Excerpts", color: '#00A5FF' },
+    { name: "Poetry/Lyrics", color: '#F07694' },
+    { name: "Music", color: '#00A5FF' }
+  ];
+
+  const categoryCounts = allItems.reduce((acc, item) => {
+    acc[item.section] = (acc[item.section] || 0) + 1;
+    return acc;
+  }, {});
+  
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-4">
+      {/* Main Content Area (3:4 aspect ratio simulation) */}
+      <div className="md:col-span-2 space-y-6">
+        
+        {/* Random Document Showcase (Top Left) */}
+        <div className={`p-6 rounded-xl shadow-lg bg-white/90 border border-gray-100`}>
+          <h3 className="text-xl font-bold text-gray-800 border-b pb-2 mb-3">Today's Showcase</h3>
+          <div className="flex items-center space-x-4 cursor-pointer" onClick={() => gotoDoc(randomItem.id)}>
+            <div className={`w-16 h-16 flex items-center justify-center rounded-md text-white font-bold text-lg 
+                            bg-[${randomItem.section === 'Music' ? CORE.contrast : CORE.highlight}]`}>
+              {randomItem.section === 'Music' ? '♪' : 'A'} 
+            </div>
+            <div>
+              <h4 className="text-lg font-semibold hover:text-gray-600 transition-colors">{randomItem.title}</h4>
+              <p className="text-sm text-gray-500 truncate max-w-sm">{randomItem.logline}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Categories Grid (Right of Showcase, using the same column area) */}
+        <div className="grid grid-cols-2 gap-4">
+          {categories.map((cat, index) => (
+            <div 
+              key={cat.name} 
+              onClick={() => gotoDoc(null, cat.name)} 
+              className={`p-4 rounded-xl shadow-lg cursor-pointer transform hover:scale-[1.02] transition-transform duration-200 
+                          text-white font-bold text-lg flex flex-col justify-between h-32`}
+              style={{ backgroundColor: cat.color }}
+            >
+              <span className="text-2xl">{cat.name.split('/')[0]}</span>
+              <span className="text-sm opacity-80">{categoryCounts[cat.name] || 0} works</span>
+            </div>
+          ))}
+        </div>
+        
+      </div>
+
+      {/* Sidebar/Empty Space on a 16:9 monitor (Right Column) */}
+      <div className="hidden md:block md:col-span-1">
+        {/* This column is the 'cut-off' on the 3:4 design */}
+        <div className="p-6 bg-white/50 rounded-xl border border-dashed border-gray-300 h-full">
+          <h3 className="text-lg font-semibold text-gray-700">Apyx.blog Vitals</h3>
+          <p className="text-sm text-gray-500 mt-2">
+            This column visually narrows the content area to achieve a near 3:4 aesthetic, providing background context or space for future widgets.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// --- Section Page Component ---
+
+function SectionPage({ sectionName, docs, audios, gotoDoc, CORE }) {
+  const allItems = [...docs, ...audios];
+  const itemsInSection = allItems.filter(item => item.section === sectionName);
+  const [filteredItems, setFilteredItems] = useState(itemsInSection);
+
+  useEffect(() => {
+    // Reset filtered items when the section changes
+    setFilteredItems(itemsInSection);
+  }, [sectionName, docs, audios]);
+
+  const randomItem = itemsInSection[Math.floor(Math.random() * itemsInSection.length)] || {title: "No works yet", logline: "Be the first to upload!", section: sectionName};
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-4">
+      {/* Main 3:4 Content Area */}
+      <div className="md:col-span-2 space-y-8">
+        <h2 className={`text-3xl font-bold text-gray-800 border-b-2 pb-2`} style={{borderColor: CORE.highlight}}>
+          {sectionName.replace(/_/g, ' ').replace(/\//g, ' / ')}
+        </h2>
+
+        {/* Random Document Showcase */}
+        <div className={`p-6 rounded-xl shadow-lg bg-white/90 border border-gray-100`}>
+          <h3 className="text-xl font-bold text-gray-800 border-b pb-2 mb-3">Featured {sectionName.split('/')[0]}</h3>
+          <div className="flex items-center space-x-4 cursor-pointer" onClick={() => gotoDoc(randomItem.id)}>
+            <div className={`w-16 h-16 flex items-center justify-center rounded-md text-white font-bold text-lg 
+                            bg-[${randomItem.section === 'Music' ? CORE.contrast : CORE.highlight}]`}>
+              {randomItem.section === 'Music' ? '♪' : 'A'} 
+            </div>
+            <div>
+              <h4 className="text-lg font-semibold hover:text-gray-600 transition-colors">{randomItem.title}</h4>
+              <p className="text-sm text-gray-500 truncate max-w-sm">{randomItem.logline}</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Search and List */}
+        <SearchFilter 
+          allItems={itemsInSection} 
+          setFilteredItems={setFilteredItems} 
+          initialSection={sectionName} 
+        />
+        
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+          {filteredItems.map(item => (
+            <div key={item.id} className="cursor-pointer space-y-2" onClick={() => gotoDoc(item.id)}>
+              {/* Icon Placeholder */}
+              <div 
+                className={`w-full h-40 flex items-center justify-center rounded-lg shadow-md hover:shadow-xl transition-shadow 
+                            bg-gray-200 text-gray-600 text-6xl font-extrabold`}
+              >
+                {item.section === 'Music' ? '🎵' : '📄'}
+              </div>
+              <p className="text-sm font-semibold text-gray-800 text-center truncate">{item.title}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Sidebar/Empty Space on a 16:9 monitor */}
+      <div className="hidden md:block md:col-span-1">
+        <div className="p-6 bg-white/50 rounded-xl border border-dashed border-gray-300 h-full">
+          <h3 className="text-lg font-semibold text-gray-700">Section Sidebar</h3>
+          <p className="text-sm text-gray-500 mt-2">
+            This area maintains the 3:4 content ratio for consistency across sections.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// --- Document Page Components (No changes needed, only kept for completeness) ---
+
+function DocumentPage({ item, CORE, saveComment, setFav, isFav, user, toggleLike, toggleDislike }) {
+  // View states: 'top_bottom', 'single_page', 'double_page'
+  const [docView, setDocView] = useState('top_bottom'); 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [commentText, setCommentText] = useState('');
+  const [commentName, setCommentName] = useState(user?.name || 'Anonymous');
+  const totalPages = 5; // Placeholder for actual PDF page count
+  
+  const handleCommentSubmit = () => {
+    if(commentText){
+      saveComment(item.id, { name: commentName, text: commentText, likes: 0, dislikes: 0, id: Date.now() });
+      setCommentText('');
+    }
+  };
+
+  return (
+    <div className="p-4 space-y-6">
+      <h2 className="text-3xl font-bold text-gray-800">{item.title}</h2>
+      <p className="text-xl font-light text-gray-600 border-b pb-4">{item.logline}</p>
+
+      {/* Document Overview */}
+      <div className="bg-gray-50 p-4 rounded-lg shadow-sm">
+        <p className="text-sm text-gray-700">{item.content.substring(0, 150)}...</p>
+        <button className={`text-[${CORE.contrast}] font-semibold mt-2 hover:underline`}>Show More</button>
+      </div>
+
+      {/* Document/File Viewer Area */}
+      <div className="bg-white p-6 border rounded-lg shadow-xl">
+        <h3 className="text-xl font-semibold mb-4">Document Viewer</h3>
+        
+        {/* Viewer Controls */}
+        <div className="flex space-x-4 mb-4 items-center">
+          <label className="text-sm font-medium">View Mode:</label>
+          <button onClick={() => setDocView('top_bottom')} className={`px-3 py-1 rounded text-sm ${docView === 'top_bottom' ? `bg-[${CORE.highlight}] text-white` : 'bg-gray-200'}`}>Top to Bottom</button>
+          <button onClick={() => setDocView('single_page')} className={`px-3 py-1 rounded text-sm ${docView === 'single_page' ? `bg-[${CORE.highlight}] text-white` : 'bg-gray-200'}`}>Single Page</button>
+          <button onClick={() => setDocView('double_page')} className={`px-3 py-1 rounded text-sm ${docView === 'double_page' ? `bg-[${CORE.highlight}] text-white` : 'bg-gray-200'}`}>Double Page</button>
+        </div>
+
+        {/* PDF/File Display */}
+        <div className="border border-gray-300 rounded-lg overflow-hidden h-96">
+          <iframe 
+            src={item.fileUrl} 
+            className="w-full h-full" 
+            title={item.title} 
+            // Simulate single/double page view by manipulating the display area if necessary
+          />
+        </div>
+
+        {/* Page Navigation for Single/Double View */}
+        {(docView === 'single_page' || docView === 'double_page') && (
+          <div className="flex justify-center space-x-4 mt-4">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 border rounded">Previous</button>
+            <span className="self-center">Page {currentPage} of {totalPages}</span>
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 border rounded">Next</button>
+          </div>
+        )}
+      </div>
+
+      {/* Interaction Field */}
+      <div className="flex justify-between items-center p-4 border-t border-b border-gray-200">
+        <div className="flex space-x-6">
+          <button onClick={() => toggleLike(item.id)} className="flex items-center space-x-1 text-green-600 hover:text-green-800">
+            <span>👍</span>
+            <span>{item.likes}</span>
+          </button>
+          <button onClick={() => toggleDislike(item.id)} className="flex items-center space-x-1 text-red-600 hover:text-red-800">
+            <span>👎</span>
+            <span>{item.dislikes}</span>
+          </button>
+        </div>
+        <button onClick={() => setFav(item.id)} className={`flex items-center space-x-1 ${isFav(item.id) ? 'text-yellow-500' : 'text-gray-400'} hover:text-yellow-500`}>
+          <span>❤️</span>
+          <span>{isFav(item.id) ? 'Favorited' : 'Favorite'}</span>
+        </button>
+      </div>
+
+      {/* Comments and Similar Documents Split */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Similar Documents (Left) */}
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold border-b pb-2">Similar Works</h3>
+          <div className="space-y-2">
+            {/* Placeholder for similar documents */}
+            <div className="p-2 border rounded hover:bg-gray-100 cursor-pointer">The Silent Chord (Music)</div>
+            <div className="p-2 border rounded hover:bg-gray-100 cursor-pointer">A Haiku on Rain (Poetry)</div>
+          </div>
+        </div>
+
+        {/* Comments (Right) */}
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold border-b pb-2">Comments</h3>
+          
+          {/* New Comment Input */}
+          <div className="border p-4 rounded-lg bg-gray-50">
+            <input 
+              type="text" 
+              placeholder="Your name (optional)" 
+              value={commentName} 
+              onChange={e => setCommentName(e.target.value)}
+              className="w-full p-2 border rounded mb-2"
+            />
+            <textarea 
+              placeholder="Leave a comment..." 
+              value={commentText} 
+              onChange={e => setCommentText(e.target.value)}
+              className="w-full p-2 border rounded mb-2"
+              rows={3}
+            />
+            <button onClick={handleCommentSubmit} className={`bg-[${CORE.contrast}] text-white px-4 py-2 rounded hover:opacity-90`}>
+              Post Comment
+            </button>
+          </div>
+
+          {/* Existing Comments */}
+          <div className="space-y-3">
+            {item.comments.length > 0 ? (
+              item.comments.map(comment => (
+                <div key={comment.id} className="p-3 border-b border-gray-200">
+                  <p className="font-semibold">{comment.name}</p>
+                  <p className="text-sm text-gray-700">{comment.text}</p>
+                  <div className="flex space-x-4 text-xs mt-1">
+                    <span className="text-green-600 cursor-pointer">👍 {comment.likes}</span>
+                    <span className="text-red-600 cursor-pointer">👎 {comment.dislikes}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500 text-sm">No comments yet. Be the first!</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function MusicPage({ item, CORE, saveComment, setFav, isFav, user, toggleLike, toggleDislike }) {
+  // Uses the simplified AudioPlayer from my previous suggestion
+  return (
+    <div className="p-4 space-y-6">
+      <h2 className="text-3xl font-bold text-gray-800">{item.title}</h2>
+      <p className="text-xl font-light text-gray-600 border-b pb-4">{item.logline}</p>
+
+      {/* Audio Player Area */}
+      <div className="bg-white p-6 border rounded-lg shadow-xl">
+        <h3 className="text-xl font-semibold mb-4">Music Player</h3>
+        
+        {/* Simple HTML Audio Player with controls */}
+        <div className="w-full">
+            {/* The audio element provides runtime dial, play button, and volume control */}
+            <audio controls src={item.fileUrl} className="w-full" />
+            <p className="text-sm text-gray-500 mt-2">Waveform visualization placeholder removed for stability.</p>
+        </div>
+      </div>
+
+      {/* Interaction Field - Same as Document Page */}
+      <div className="flex justify-between items-center p-4 border-t border-b border-gray-200">
+        <div className="flex space-x-6">
+          <button onClick={() => toggleLike(item.id)} className="flex items-center space-x-1 text-green-600 hover:text-green-800">
+            <span>👍</span>
+            <span>{item.likes}</span>
+          </button>
+          <button onClick={() => toggleDislike(item.id)} className="flex items-center space-x-1 text-red-600 hover:text-red-800">
+            <span>👎</span>
+            <span>{item.dislikes}</span>
+          </button>
+        </div>
+        <button onClick={() => setFav(item.id)} className={`flex items-center space-x-1 ${isFav(item.id) ? 'text-yellow-500' : 'text-gray-400'} hover:text-yellow-500`}>
+          <span>❤️</span>
+          <span>{isFav(item.id) ? 'Favorited' : 'Favorite'}</span>
+        </button>
+      </div>
+
+      {/* Comments and Similar Documents Split - Same as Document Page */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold border-b pb-2">Similar Works</h3>
+          <div className="space-y-2">
+            <div className="p-2 border rounded hover:bg-gray-100 cursor-pointer">Rhythmic Structure (Experimental)</div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold border-b pb-2">Comments</h3>
+          {/* New Comment Input */}
+          <div className="border p-4 rounded-lg bg-gray-50">
+            <input 
+              type="text" 
+              placeholder="Your name (optional)" 
+              value={'Anonymous'} 
+              className="w-full p-2 border rounded mb-2"
+            />
+            <textarea 
+              placeholder="Leave a comment..." 
+              className="w-full p-2 border rounded mb-2"
+              rows={3}
+            />
+            <button className={`bg-[${CORE.contrast}] text-white px-4 py-2 rounded hover:opacity-90`}>
+              Post Comment (Functionality not fully implemented here)
+            </button>
+          </div>
+          <div className="space-y-3">
+            <p className="text-gray-500 text-sm">No comments yet (Placeholder).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function SimpleTextPage({title, initialText, CORE}){
+  // This component needs to be simplified as per your request (just text input)
+  const [text, setText] = useState(initialText);
+  return (
+    <div className="prose max-w-none p-4">
+      <h2 className={`text-3xl font-bold border-b-2 pb-2`} style={{borderColor: CORE.highlight}}>{title}</h2>
+      <textarea className="w-full h-96 border mt-4 p-3" value={text} onChange={e=>setText(e.target.value)} />
+    </div>
+  );
+}
+
+function ProfilePage({user, setUser, getFavs, docs, audios, gotoDoc, CORE}){
+  const favs = getFavs();
+  const favItems = [...docs,...audios].filter(i=> favs.includes(i.id));
+  if(!user) return <div className="p-4">Not signed in.</div>;
+  
+  // Placeholder data for trackers
+  const trackerData = [
+    { label: "Documents Read", count: user.readCount || 5 },
+    { label: "Comments Left", count: user.commentCount || 12 },
+    { label: "Likes Received", count: user.likesReceived || 45 },
+  ];
+
+  return (
+    <div className="p-4 space-y-8">
+      <h2 className={`text-3xl font-bold border-b-2 pb-2`} style={{borderColor: CORE.highlight}}>User Profile: {user.name}</h2>
+      
+      {/* Profile Customization */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-6 bg-white shadow-lg rounded-xl">
+        <div className="flex flex-col items-center space-y-4">
+          {/* PFP (Placeholder) */}
+          <div className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl text-white font-bold`} style={{backgroundColor: CORE.contrast}}>
+            {user.name[0].toUpperCase()}
+          </div>
+          <button className={`text-sm font-medium text-[${CORE.contrast}] hover:underline`}>Change Profile Picture</button>
+        </div>
+        
+        <div className="md:col-span-2 space-y-4">
+          <label className="block text-sm font-medium text-gray-700">Bio</label>
+          <textarea 
+            className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-[#F07694]" 
+            rows={3} 
+            value={user.bio||'No bio set.'} 
+            onChange={e=>setUser({...user,bio:e.target.value})} 
+          />
+          <button className={`bg-[${CORE.highlight}] text-white px-4 py-2 rounded hover:opacity-90`}>Save Changes</button>
+        </div>
+      </div>
+
+      {/* Tracker Section */}
+      <div className="space-y-4">
+        <h4 className="text-xl font-semibold border-b pb-2">Activity Tracker</h4>
+        <div className="grid grid-cols-3 gap-4">
+          {trackerData.map(t => (
+            <div key={t.label} className="p-4 bg-gray-100 rounded-lg text-center shadow-md">
+              <div className={`text-3xl font-bold text-[${CORE.contrast}]`}>{t.count}</div>
+              <p className="text-sm text-gray-600">{t.label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      {/* Favourites Section */}
+      <div className="space-y-4">
+        <h4 className="text-xl font-semibold border-b pb-2">Favourites</h4>
+        <div className="mt-2 space-y-2">
+          {favItems.length > 0 ? (
+            favItems.map(it=> (
+              <div 
+                key={it.id} 
+                className="p-3 border rounded cursor-pointer hover:bg-gray-50 flex justify-between items-center" 
+                onClick={()=>gotoDoc(it.id)}
+              >
+                <span className="font-medium">{it.title}</span>
+                <span className="text-sm text-gray-500">{it.section}</span>
+              </div>
+            ))
+          ) : (
+            <p className="text-gray-500 text-sm">You have no favourited items yet.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// --- Main App Component ---
 
 export default function App(){
   const CORE = { highlight: '#F07694', bg: '#FFFFFF', contrast: '#00A5FF' };
@@ -17,7 +668,7 @@ export default function App(){
     try { return JSON.parse(localStorage.getItem('apyx_docs')) || sampleDocs(); } catch(e){ return sampleDocs(); }
   });
   const [audioList, setAudioList] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('apyx_audio')) || []; } catch(e){ return []; }
+    try { return JSON.parse(localStorage.getItem('apyx_audio')) || sampleAudios(); } catch(e){ return sampleAudios(); }
   });
 
   useEffect(()=> localStorage.setItem('apyx_docs', JSON.stringify(docs)), [docs]);
@@ -26,406 +677,152 @@ export default function App(){
   const [user, setUser] = useState(()=> JSON.parse(localStorage.getItem('apyx_user')) || null);
   useEffect(()=> localStorage.setItem('apyx_user', JSON.stringify(user)), [user]);
 
-  const [bgImage, setBgImage] = useState(()=> localStorage.getItem('apyx_bg') || '');
-  useEffect(()=> { if(bgImage) localStorage.setItem('apyx_bg', bgImage); }, [bgImage]);
+  const [bgImage, setBgImage] = useState(() => localStorage.getItem('apyx_bg_image') || 'https://images.unsplash.com/photo-1549491763-958a5c370213?fit=crop&q=80&w=1974&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
+  useEffect(()=> localStorage.setItem('apyx_bg_image', bgImage), [bgImage]);
 
-  // search index: titles + optional fullText field on each doc
-  const [query, setQuery] = useState('');
 
-  // UI helpers
-  function gotoHome(){ setView({name:'home', payload:null}); }
-  function gotoSection(name){ setView({name:'section', payload:name}); }
-  function gotoDoc(id){ setView({name:'doc', payload:id}); }
+  // --- Helper Methods ---
 
-  // File upload handlers (pdf, audio)
-  function handleUploadPDF(e){
-    const f = e.target.files[0];
-    if(!f) return;
-    const id = 'doc_'+Date.now();
-    const url = URL.createObjectURL(f);
-    const newDoc = { id, title: f.name, blob: url, type: 'pdf', category: 'Short fiction/Excerpts', created: Date.now(), description:'', fullText:'' };
-    setDocs(d=>[newDoc,...d]);
-    e.target.value = '';
-    alert('PDF added to library. Edit its title or description in the doc page.');
+  const allItems = [...docs, ...audioList];
+
+  const gotoDoc = (id, sectionName) => {
+    if (id) {
+      setView({name: 'doc', payload: id});
+    } else if (sectionName) {
+      setView({name: 'section', payload: sectionName});
+    }
   }
 
-  function handleUploadAudio(e){
-    const f = e.target.files[0]; if(!f) return;
-    const id = 'aud_'+Date.now();
-    const url = URL.createObjectURL(f);
-    const newAud = { id, title: f.name, blob: url, type:'audio', created: Date.now(), description:'' };
-    setAudioList(a=>[newAud,...a]);
-    e.target.value='';
-    alert('Audio added to library.');
-  }
+  const findItem = (id) => allItems.find(item => item.id === id);
 
-  // basic like/favorite/comment storage in localStorage keyed by item id
-  function toggleFav(id){
-    const favs = JSON.parse(localStorage.getItem('apyx_favs')||'[]');
-    const idx = favs.indexOf(id);
-    if(idx===-1) favs.push(id); else favs.splice(idx,1);
-    localStorage.setItem('apyx_favs', JSON.stringify(favs));
-    // trigger refresh by updating user object copy
-    setUser(u=>u?{...u}:u);
-  }
-  function getFavs(){ return JSON.parse(localStorage.getItem('apyx_favs')||'[]'); }
+  const getFavs = () => user?.favorites || [];
+  const isFav = (id) => getFavs().includes(id);
 
-  // comments
-  function addComment(id, name, text){
-    const all = JSON.parse(localStorage.getItem('apyx_comments')||'{}');
-    if(!all[id]) all[id]=[];
-    all[id].push({name, text, ts:Date.now(), id:'c_'+Date.now()});
-    localStorage.setItem('apyx_comments', JSON.stringify(all));
-    setUser(u=>u?{...u}:u);
-  }
-  function getComments(id){ const all = JSON.parse(localStorage.getItem('apyx_comments')||'{}'); return all[id]||[]; }
-
-  // search function (searches title, description, fullText)
-  function searchItems(q){
-    q = q.toLowerCase().trim();
-    if(!q) return [...docs, ...audioList];
-    const res = [];
-    [...docs,...audioList].forEach(it=>{
-      const hay = ((it.title||'') + ' ' + (it.description||'') + ' ' + (it.fullText||'')).toLowerCase();
-      if(hay.includes(q)) res.push(it);
+  const setFav = (id) => {
+    if(!user) return alert('Please sign in to favorite an item.');
+    setUser(prevUser => {
+      let newFavs = prevUser.favorites || [];
+      if (newFavs.includes(id)) {
+        newFavs = newFavs.filter(f => f !== id);
+      } else {
+        newFavs = [...newFavs, id];
+      }
+      return {...prevUser, favorites: newFavs};
     });
-    return res;
+  };
+
+  const updateItem = (id, updates) => {
+    setDocs(prevDocs => prevDocs.map(doc => doc.id === id ? {...doc, ...updates} : doc));
+    setAudioList(prevAudios => prevAudios.map(audio => audio.id === id ? {...audio, ...updates} : audio));
+  };
+
+  const toggleLike = (id) => {
+    const item = findItem(id);
+    if (!item) return;
+    updateItem(id, { likes: (item.likes || 0) + 1 });
+  };
+
+  const toggleDislike = (id) => {
+    const item = findItem(id);
+    if (!item) return;
+    updateItem(id, { dislikes: (item.dislikes || 0) + 1 });
+  };
+
+  const saveComment = (id, comment) => {
+    const item = findItem(id);
+    if (!item) return;
+    updateItem(id, { comments: [...(item.comments || []), comment] });
+  };
+
+  const logIn = () => {
+    const username = prompt("Enter a username to sign in/register:");
+    if (username) {
+      setUser({
+        name: username, 
+        bio: '', 
+        favorites: [], 
+        readCount: Math.floor(Math.random() * 20),
+        commentCount: Math.floor(Math.random() * 5),
+        likesReceived: Math.floor(Math.random() * 100),
+      });
+    }
+  };
+  const logOut = () => setUser(null);
+
+
+  // --- View Rendering Logic ---
+
+  let pageContent;
+  switch(view.name){
+    case 'home':
+      pageContent = <HomePage docs={docs} audios={audioList} gotoDoc={gotoDoc} CORE={CORE} />;
+      break;
+    case 'section':
+      pageContent = <SectionPage sectionName={view.payload} docs={docs} audios={audioList} gotoDoc={gotoDoc} CORE={CORE} />;
+      break;
+    case 'doc':
+      const item = findItem(view.payload);
+      if(!item) {
+        pageContent = <div>Document not found.</div>;
+        break;
+      }
+      if(item.section === 'Music'){
+        pageContent = <MusicPage item={item} CORE={CORE} saveComment={saveComment} setFav={setFav} isFav={isFav} user={user} toggleLike={toggleLike} toggleDislike={toggleDislike} />;
+      } else {
+        pageContent = <DocumentPage item={item} CORE={CORE} saveComment={saveComment} setFav={setFav} isFav={isFav} user={user} toggleLike={toggleLike} toggleDislike={toggleDislike} />;
+      }
+      break;
+    case 'about':
+      pageContent = <SimpleTextPage title="About Apyx.blog" initialText="This is where I'll put my information about the website and myself." CORE={CORE} />;
+      break;
+    case 'contact':
+      pageContent = <SimpleTextPage title="Contact" initialText="You can reach me at [email@example.com]" CORE={CORE} />;
+      break;
+    case 'profile':
+      pageContent = <ProfilePage user={user} setUser={setUser} getFavs={getFavs} docs={docs} audios={audioList} gotoDoc={gotoDoc} CORE={CORE} />;
+      break;
+    default:
+      pageContent = <div>404 Page Not Found</div>;
   }
 
-  // pick random document for featured
-  function randomDoc(list){ if(!list || list.length===0) return null; return list[Math.floor(Math.random()*list.length)]; }
+  // --- Final Render ---
 
-  // small responsive layout for main page as requested
   return (
-    <div className="min-h-screen" style={{backgroundColor:CORE.bg, backgroundImage: bgImage?`url(${bgImage})`:undefined, backgroundSize:'cover'}}>
-      <TopBar onHome={gotoHome} onSection={gotoSection} user={user} onSignIn={()=>{ const name = prompt('Enter display name (this is local only)'); if(name) setUser({name, id:'u_'+Date.now(), stats:{read:0,comments:0,likes:0}}); }} onProfile={()=>setView({name:'profile'})} />
+    <div 
+      className="min-h-screen relative" 
+      style={{ backgroundImage: `url(${bgImage})`, backgroundAttachment: 'fixed', backgroundSize: 'cover' }}
+    >
+      
+      {/* Top Navigation Bar (Fixed) */}
+      <TopBar 
+        setView={setView} 
+        CORE={CORE} 
+        user={user} 
+        logOut={logOut} 
+        logIn={logIn} 
+        // We pass setView here, which NavItem now uses directly for navigation
+        openCategories={(sectionName) => setView({name:'section', payload: sectionName})} 
+      />
 
-      <div className="max-w-6xl mx-auto p-6">
-        {view.name==='home' && (
-          <HomeView docs={docs} audios={audioList} onUploadPDF={handleUploadPDF} onUploadAudio={handleUploadAudio} gotoSection={gotoSection} gotoDoc={gotoDoc} randomDoc={randomDoc([...docs,...audioList])} />
-        )}
-
-        {view.name==='section' && (
-          <SectionView name={view.payload} items={searchItems('')} gotoDoc={gotoDoc} searchFn={searchItems} bgImage={bgImage} setBgImage={setBgImage} />
-        )}
-
-        {view.name==='doc' && (
-          <DocumentView id={view.payload} docs={docs} audios={audioList} onEdit={(updated)=>{
-            setDocs(docs.map(x=> x.id===updated.id?{...x,...updated}:x));
-            setAudioList(audioList.map(x=> x.id===updated.id?{...x,...updated}:x));
-          }} addComment={addComment} getComments={getComments} toggleFav={toggleFav} getFavs={getFavs} />
-        )}
-
-        {view.name==='about' && (
-          <SimpleTextPage title="About" initialText={'Put your about text here.'} />
-        )}
-
-        {view.name==='contact' && (
-          <SimpleTextPage title="Contact" initialText={'Put contact info here.'} />
-        )}
-
-        {view.name==='profile' && (
-          <ProfilePage user={user} setUser={setUser} getFavs={getFavs} docs={docs} audios={audioList} gotoDoc={gotoDoc} />
-        )}
-
-        {/* allow navigation to named views for convenience */}
-        <div className="mt-6 text-sm text-gray-500">Quick links: <button className="underline mr-2" onClick={()=>setView({name:'section',payload:'Experimental'})}>Experimental</button> <button className="underline mr-2" onClick={()=>setView({name:'section',payload:'Music'})}>Music</button> <button className="underline" onClick={()=>setView({name:'about'})}>About</button></div>
-      </div>
+      {/* Main Content Area */}
+      {/* pt-[100px] ensures content is pushed down, clearing the 100px fixed TopBar */}
+      <main className="min-h-screen pt-[100px] bg-white/50 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto p-4 md:p-8">
+          {pageContent}
+        </div>
+        
+        {/* Simple Footer/Debug Info */}
+        <footer className="py-4 text-center text-gray-500 text-xs mt-12 border-t border-gray-300">
+          Apyx.blog | Built with React and Tailwind CSS.
+          <button 
+            onClick={() => setBgImage('https://images.unsplash.com/photo-1577742111364-58580007559c?fit=crop&q=80&w=1935&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')} 
+            className="ml-4 text-[${CORE.contrast}] hover:underline"
+          >
+            Change BG Image
+          </button>
+        </footer>
+      </main>
 
     </div>
   );
-}
-
-// ---------- Subcomponents ----------
-function TopBar({onHome,onSection,user,onSignIn,onProfile}){
-  return (
-    <header className="w-full border-b py-3 bg-white/90 backdrop-blur">
-      <div className="max-w-6xl mx-auto flex items-center justify-between px-4">
-        <div className="flex items-center gap-4">
-          <button onClick={onHome} className="text-lg font-semibold">apyx.blog</button>
-          <nav className="hidden md:flex gap-3 items-center text-sm">
-            <button onClick={onHome} className="hover:underline">Home</button>
-            <div className="relative group">
-              <button className="hover:underline">Categories</button>
-              <div className="absolute left-0 mt-2 p-2 bg-white shadow rounded hidden group-hover:block" style={{transition:'300ms'}}>
-                <div className="text-sm"><button onClick={()=>onSection('Experimental')}>Experimental</button></div>
-                <div className="text-sm"><button onClick={()=>onSection('Short fiction/Excerpts')}>Short fiction/Excerpts</button></div>
-                <div className="text-sm"><button onClick={()=>onSection('Poetry/Lyrics')}>Poetry/Lyrics</button></div>
-                <div className="text-sm"><button onClick={()=>onSection('Music')}>Music</button></div>
-              </div>
-            </div>
-            <button onClick={()=>window.scrollTo(0,0)} className="hover:underline">About</button>
-            <button onClick={()=>window.scrollTo(0,0)} className="hover:underline">Contact</button>
-          </nav>
-        </div>
-        <div>
-          {user ? (
-            <button onClick={onProfile} className="text-sm px-3 py-1 border rounded">Profile</button>
-          ) : (
-            <button onClick={onSignIn} className="text-sm px-3 py-1 border rounded">Sign in</button>
-          )}
-        </div>
-      </div>
-    </header>
-  );
-}
-
-function HomeView({docs,audios,onUploadPDF,onUploadAudio,gotoSection,gotoDoc,randomDoc}){
-  const rand = randomDoc;
-  return (
-    <div>
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2">
-          <h2 className="text-2xl font-semibold mb-3">Featured</h2>
-          {rand? (
-            <div className="p-4 border rounded flex gap-4 items-start">
-              <div className="w-2/5">
-                {rand.type==='audio' ? (
-                  <div className="h-48 flex items-center justify-center bg-gray-100">Audio: {rand.title}</div>
-                ) : (
-                  <iframe title={rand.title} src={rand.blob + '#page=1'} className="w-full h-96 border" />
-                )}
-              </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-medium">{rand.title}</h3>
-                <p className="text-sm text-gray-600">{rand.description || 'No description yet.'}</p>
-                <div className="mt-4 flex gap-2">
-                  <button className="px-3 py-1 border rounded" onClick={()=>gotoDoc(rand.id)}>Open</button>
-                </div>
-              </div>
-            </div>
-          ) : (<div>No items yet. Upload a PDF or audio to get started.</div>)}
-        </div>
-
-        <div className="col-span-1">
-          <h3 className="font-semibold mb-2">Categories</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <CategoryCard onClick={()=>gotoSection('Experimental')} title="Experimental" />
-            <CategoryCard onClick={()=>gotoSection('Short fiction/Excerpts')} title="Short fiction/Excerpts" />
-            <CategoryCard onClick={()=>gotoSection('Poetry/Lyrics')} title="Poetry/Lyrics" />
-            <CategoryCard onClick={()=>gotoSection('Music')} title="Music" />
-          </div>
-
-          <div className="mt-6">
-            <h4 className="font-medium">Upload</h4>
-            <div className="mt-2">
-              <label className="block text-xs text-gray-600">PDF (writing)</label>
-              <input type="file" accept="application/pdf" onChange={onUploadPDF} />
-            </div>
-            <div className="mt-2">
-              <label className="block text-xs text-gray-600">Audio</label>
-              <input type="file" accept="audio/*" onChange={onUploadAudio} />
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CategoryCard({title,onClick}){
-  return (
-    <button className="p-4 border rounded text-left hover:shadow" onClick={onClick}>
-      <div className="font-semibold">{title}</div>
-    </button>
-  );
-}
-
-function SectionView({name, items, gotoDoc, searchFn, bgImage, setBgImage}){
-  const [q, setQ] = useState('');
-  const [results, setResults] = useState([]);
-  useEffect(()=> setResults(searchFn(q)), [q]);
-
-  // show only items in category
-  const filtered = results.filter(it=> it.category===name || (name==='Music' && it.type==='audio'));
-
-  return (
-    <div>
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">{name}</h2>
-        <div>
-          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search titles or text" className="border p-2 rounded" />
-        </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-3 gap-6">
-        {filtered.map(it=> (
-          <div key={it.id} className="p-3 border rounded cursor-pointer" onClick={()=>gotoDoc(it.id)}>
-            <div className="h-48 bg-gray-100 flex items-center justify-center">{it.type==='audio' ? 'Audio' : 'PDF'}</div>
-            <div className="mt-2 text-sm font-medium">{it.title}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-6">
-        <h4 className="text-sm text-gray-600">Section background</h4>
-        <input type="file" accept="image/*" onChange={e=>{ const f=e.target.files[0]; if(!f) return; const u=URL.createObjectURL(f); setBgImage(u); }} />
-      </div>
-    </div>
-  );
-}
-
-function DocumentView({id, docs, audios, onEdit, addComment, getComments, toggleFav, getFavs}){
-  const item = [...docs,...audios].find(x=>x.id===id);
-  const [viewMode, setViewMode] = useState('scroll'); // scroll, single, double
-  const [page, setPage] = useState(1);
-  if(!item) return <div>Item not found</div>;
-
-  return (
-    <div className="mt-6 grid grid-cols-3 gap-6">
-      <div className="col-span-2">
-        <h2 className="text-xl font-semibold">{item.title}</h2>
-        <p className="text-sm text-gray-600">{item.description}</p>
-
-        <div className="mt-4">
-          {item.type==='audio' ? (
-            <AudioPlayer src={item.blob} />
-          ) : (
-            <div>
-              <div className="flex gap-2 items-center mb-2">
-                <label className="text-sm">View:</label>
-                <select value={viewMode} onChange={e=>setViewMode(e.target.value)} className="border p-1">
-                  <option value="scroll">Top-to-bottom (scroll)</option>
-                  <option value="single">Single page</option>
-                  <option value="double">Double page</option>
-                </select>
-              </div>
-
-              {viewMode==='scroll' && (
-                <iframe src={item.blob + '#toolbar=0'} className="w-full h-[70vh] border" />
-              )}
-
-              {viewMode!=='scroll' && (
-                <div>
-                  <div className="flex gap-2 mb-2">
-                    <button onClick={()=>setPage(p=>Math.max(1,p-1))} className="px-2 py-1 border rounded">Prev</button>
-                    <div>Page {page}</div>
-                    <button onClick={()=>setPage(p=>p+1)} className="px-2 py-1 border rounded">Next</button>
-                  </div>
-                  <iframe src={`${item.blob}#page=${page}&view=FitH`} className="w-full h-[70vh] border" />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <InteractionPanel id={item.id} addComment={addComment} getComments={getComments} toggleFav={toggleFav} getFavs={getFavs} />
-
-      </div>
-
-      <aside className="col-span-1">
-        <h4 className="font-semibold">Overview</h4>
-        <p className="text-sm text-gray-700">{item.description || 'No overview yet.'}</p>
-
-        <div className="mt-4">
-          <h5 className="font-medium">Similar works</h5>
-          <div className="text-sm text-gray-600">(Auto-suggest based on category)</div>
-        </div>
-      </aside>
-    </div>
-  );
-}
-
-function InteractionPanel({id, addComment, getComments, toggleFav, getFavs}){
-  const [name, setName] = useState('Anonymous');
-  const [text, setText] = useState('');
-  const comments = getComments(id);
-  const favs = getFavs();
-  const isFav = favs.includes(id);
-  return (
-    <div className="mt-6">
-      <div className="flex items-center gap-2">
-        <button onClick={()=>toggleFav(id)} className={`px-3 py-1 border rounded ${isFav? 'bg-pink-100':''}`}>♥ Fav</button>
-        <button className="px-3 py-1 border rounded">Like</button>
-        <button className="px-3 py-1 border rounded">Dislike</button>
-      </div>
-
-      <div className="mt-4">
-        <h5 className="font-medium">Comments</h5>
-        <div className="mt-2">
-          <input className="border p-1 w-48" value={name} onChange={e=>setName(e.target.value)} />
-          <textarea className="block w-full border mt-2 p-2" rows={3} value={text} onChange={e=>setText(e.target.value)} />
-          <div className="mt-2">
-            <button onClick={()=>{ if(text.trim()){ addComment(id, name||'Anonymous', text.trim()); setText(''); } }} className="px-3 py-1 border rounded">Post</button>
-          </div>
-        </div>
-
-        <div className="mt-3 space-y-2">
-          {comments.map(c=> (
-            <div key={c.id} className="p-2 border rounded">
-              <div className="text-sm font-semibold">{c.name}</div>
-              <div className="text-sm">{c.text}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AudioPlayer({src}){
-  const audioRef = useRef();
-  const canvasRef = useRef();
-  useEffect(()=>{
-    // draw waveform using WebAudio API
-    let ctx, analyser, data;
-    const audio = new Audio(src);
-    const ac = new (window.AudioContext || window.webkitAudioContext)();
-    const srcNode = ac.createMediaElementSource(audio);
-    analyser = ac.createAnalyser();
-    srcNode.connect(analyser); analyser.connect(ac.destination);
-    analyser.fftSize = 2048; const bufferLength = analyser.frequencyBinCount; data = new Uint8Array(bufferLength);
-    const canvas = canvasRef.current; const c = canvas.getContext('2d');
-    function draw(){ analyser.getByteTimeDomainData(data); c.clearRect(0,0,canvas.width,canvas.height); c.beginPath(); const slice = canvas.width / data.length; let x=0; for(let i=0;i<data.length;i++){ const v = data[i]/128.0; const y = v * canvas.height/2; if(i===0) c.moveTo(x,y); else c.lineTo(x,y); x += slice; } c.stroke(); requestAnimationFrame(draw); }
-    audio.play().catch(()=>{}); draw();
-    // cleanup
-    return ()=>{ audio.pause(); try{ ac.close(); }catch(e){} }
-  },[src]);
-
-  return (
-    <div>
-      <audio controls src={src} style={{width:'100%'}} />
-      <canvas ref={canvasRef} width={800} height={100} className="w-full mt-2 border" />
-    </div>
-  );
-}
-
-function SimpleTextPage({title, initialText}){
-  const [text, setText] = useState(initialText);
-  return (
-    <div className="prose max-w-none">
-      <h2>{title}</h2>
-      <textarea className="w-full h-96 border mt-4 p-3" value={text} onChange={e=>setText(e.target.value)} />
-    </div>
-  );
-}
-
-function ProfilePage({user, setUser, getFavs, docs, audios, gotoDoc}){
-  const favs = getFavs();
-  const favItems = [...docs,...audios].filter(i=> favs.includes(i.id));
-  if(!user) return <div>Not signed in.</div>;
-  return (
-    <div>
-      <h2 className="text-xl font-semibold">{user.name}</h2>
-      <div className="mt-4">
-        <label className="block text-sm">Bio</label>
-        <textarea className="w-full border" rows={3} value={user.bio||''} onChange={e=>setUser({...user,bio:e.target.value})} />
-      </div>
-
-      <div className="mt-6">
-        <h4>Favourites</h4>
-        <div className="mt-2 space-y-2">
-          {favItems.map(it=> (<div key={it.id} className="p-2 border rounded cursor-pointer" onClick={()=>gotoDoc(it.id)}>{it.title}</div>))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ---------- Sample data ----------
-function sampleDocs(){
-  return [
-    { id:'doc_example1', title:'Experimental — fragment', blob:'', type:'pdf', category:'Experimental', description:'A short experimental fragment. Upload a PDF to replace.', created: Date.now(), fullText:'example text' },
-  ];
 }
